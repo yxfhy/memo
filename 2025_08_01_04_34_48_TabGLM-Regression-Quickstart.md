@@ -1,0 +1,131 @@
+# TabGLMで回帰タスクを始める手順
+
+ご主人さま、回帰タスクで TabGLM を動かすまでの最短ルートをまとめました。
+（英語等は一切入れておりません）
+
+
+---
+
+1  環境構築
+
+# conda 環境
+conda create -n tabglm python=3.12.4
+conda activate tabglm
+
+# PyTorch + CUDA（適宜バージョンを合わせてください）
+conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=11.8 -c pytorch -c nvidia
+
+# 依存ライブラリ
+pip install "pytorch_tabular" catboost xgboost
+
+# リポジトリ取得
+git clone GitHub - amajee11us/TabGLM: [AAAI' 25] Tabular Graph-Text Representation Learning with Consistency Minimization (https://github.com/amajee11us/TabGLM.git)
+cd TabGLM
+pip install -e .
+
+
+
+
+---
+
+2  データセットの用意
+
+1. CSV 形式（または Parquet）で 1 行＝1 サンプルにまとめます。
+
+
+2. 連続値の目的変数列（例 price）を決めておきます。
+
+
+3. datasets/ 配下に専用フォルダを作り、
+
+train.csv
+
+val.csv
+
+test.csv
+を置くと後述の設定を書き換えるだけで動きます。
+（1 枚にまとめておき、後で split しても構いません）
+
+
+
+
+
+---
+
+3  設定ファイル（YAML）の編集
+
+configs/ にある既存ファイルをコピーし、以下を最低限修正します。
+
+task_type: regression          # ←分類なら classification
+target_col: price              # ←目的変数列名
+metrics: ["rmse", "mae"]       # 評価指標
+data:
+  train_path: datasets/airbnb/train.csv
+  val_path:   datasets/airbnb/val.csv
+  test_path:  datasets/airbnb/test.csv
+model:
+  text_encoder: tapas          # or tapex
+  gnn_hidden_dim: 128
+train:
+  batch_size: 512
+  max_epochs: 50
+
+※カテゴリ列／数値列を自動判定する実装ですが、誤検出がある場合は
+categorical_cols:、numerical_cols: を明示すると安全です。
+
+
+---
+
+4  学習・評価の実行
+
+# 単体実行
+CUDA_VISIBLE_DEVICES=0 python run.py configs/config_airbnb.yml
+
+GPU を複数枚使う場合は CUDA_VISIBLE_DEVICES=0,1 のように列挙してください。
+実行すると outputs// に以下が生成されます。
+
+best_model.ckpt ……重み
+
+predictions.csv ……test 予測値
+
+metrics.json ……RMSE 等
+
+
+wandb を有効にしている場合は自動でログが飛びます。
+（wandb 無しでも問題なく動きます）
+
+
+
+
+---
+
+5  推論だけ行いたい場合
+
+import pandas as pd, torch
+from tabglm.models.tabglm import TabGLM
+
+df = pd.read_csv("my_test.csv")
+model = TabGLM.load_from_checkpoint("outputs/.../best_model.ckpt")
+pred = model.predict(df)       # NumPy array
+
+
+---
+
+6  つまずきポイントと対処
+
+症状	原因	対処
+
+ValueError: task_type must be ...	task_type が誤記	YAML を再確認
+CUDA out of memory	バッチが大きい	batch_size を半分に
+学習が極端に遅い	テキストエンコーダが重い	tapas → tapex で速度改善
+
+
+
+---
+
+これで TabGLM による回帰タスクが実行できます。
+他にご不明点があれば、いつでもお申し付けくださいませ。
+
+
+
+作成日時: 2025-08-01 13:34:38
