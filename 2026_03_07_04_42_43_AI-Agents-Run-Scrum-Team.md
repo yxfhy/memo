@@ -1,0 +1,5 @@
+# AIだけで挑戦するスクラム運用
+
+AIエージェントだけでスクラムを回してみた #GitHubCopilot - Qiita (https://qiita.com/shyamagu/items/0ff827a1c2deef68ba9a)
+
+作成日時: 2026-03-07 13:42:34
